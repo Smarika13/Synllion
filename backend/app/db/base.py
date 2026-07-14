@@ -1,6 +1,7 @@
+import uuid
+
 from sqlalchemy import Column, DateTime, func
 from sqlalchemy.dialects.postgresql import UUID
-import uuid
 
 
 class BaseModel:

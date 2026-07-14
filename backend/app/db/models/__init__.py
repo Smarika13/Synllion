@@ -1,3 +1,3 @@
-from .user import User
-from .otp import OTPVerification
 from .candidate import Candidate
+from .otp import OTPVerification
+from .user import User

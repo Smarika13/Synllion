@@ -1,17 +1,9 @@
-from sqlalchemy import (
-    Column,
-    String,
-    Text,
-    Integer,
-    Numeric,
-    DateTime,
-    Boolean,
-    ForeignKey,
-    JSON,
-)
+from datetime import datetime
+
+from sqlalchemy import (JSON, Boolean, Column, DateTime, ForeignKey, Integer,
+                        Numeric, String, Text)
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import relationship
-from datetime import datetime
 
 from app.db.database import Base
 
