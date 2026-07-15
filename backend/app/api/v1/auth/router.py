@@ -75,7 +75,9 @@ async def register(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Register a new user."""
-    existing_email_result = await db.execute(select(User).where(User.email == request.email))
+    existing_email_result = await db.execute(
+        select(User).where(User.email == request.email)
+    )
     if existing_email_result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already registered")
 
