@@ -1,12 +1,13 @@
 import uuid
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.database import Base
+if TYPE_CHECKING:
+    from app.db.database import Base
 
 
 class OTPVerification(Base):

@@ -8,11 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.auth.router import router as auth_router
 from app.config import settings
 from app.db.database import Base, engine
+from collections.abc import AsyncGenerator
+
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> None:  # noqa: ARG001
-    """Application lifespan manager."""
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield

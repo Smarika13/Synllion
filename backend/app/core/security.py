@@ -15,12 +15,12 @@ pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plain password against a hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    return bool(pwd_context.verify(plain_password, hashed_password))
 
 
 def get_password_hash(password: str) -> str:
     """Hash a password using Argon2."""
-    return pwd_context.hash(password)
+    return str(pwd_context.hash(password))
 
 
 def generate_otp(length: int = 6) -> str:
@@ -33,7 +33,7 @@ def create_access_token(data: dict[str, Any]) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire, "type": "access"})
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return str(jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM))
 
 
 def create_refresh_token(data: dict[str, Any]) -> str:
@@ -41,4 +41,4 @@ def create_refresh_token(data: dict[str, Any]) -> str:
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     to_encode.update({"exp": expire, "type": "refresh"})
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return str(jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM))

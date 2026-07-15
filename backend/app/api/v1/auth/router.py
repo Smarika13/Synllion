@@ -75,12 +75,14 @@ async def register(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Register a new user."""
-    result = await db.execute(select(User).where(User.email == request.email))
-    if result.scalar_one_or_none():
+    existing_email_result = await db.execute(select(User).where(User.email == request.email))
+    if existing_email_result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    result = await db.execute(select(User).where(User.username == request.username))
-    if result.scalar_one_or_none():
+    existing_username_result = await db.execute(
+        select(User).where(User.username == request.username)
+    )
+    if existing_username_result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Username already taken")
 
     user = User(
@@ -122,12 +124,12 @@ async def verify_otp(
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
     """Verify OTP and activate account."""
-    result = await db.execute(select(User).where(User.email == request.email))
-    user: User | None = result.scalar_one_or_none()
+    user_result = await db.execute(select(User).where(User.email == request.email))
+    user: User | None = user_result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    result = await db.execute(
+    otp_result = await db.execute(
         select(OTPVerification).where(
             and_(
                 OTPVerification.user_id == user.id,
@@ -139,10 +141,10 @@ async def verify_otp(
             )
         )
     )
-    otp: OTPVerification | None = result.scalar_one_or_none()
+    otp: OTPVerification | None = otp_result.scalar_one_or_none()
 
     if not otp:
-        result = await db.execute(
+        existing_otp_result = await db.execute(
             select(OTPVerification).where(
                 and_(
                     OTPVerification.user_id == user.id,
@@ -151,7 +153,7 @@ async def verify_otp(
                 )
             )
         )
-        existing_otp: OTPVerification | None = result.scalar_one_or_none()
+        existing_otp: OTPVerification | None = existing_otp_result.scalar_one_or_none()
         if existing_otp and existing_otp.attempts_remaining > 0:
             existing_otp.attempts_remaining -= 1
             await db.commit()
@@ -186,8 +188,8 @@ async def login(
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
     """Authenticate user and return tokens."""
-    result = await db.execute(select(User).where(User.email == request.email))
-    user: User | None = result.scalar_one_or_none()
+    user_result = await db.execute(select(User).where(User.email == request.email))
+    user: User | None = user_result.scalar_one_or_none()
 
     if not user or not verify_password(request.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
