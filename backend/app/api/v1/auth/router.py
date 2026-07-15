@@ -5,9 +5,13 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.security import (create_access_token, create_refresh_token,
-                               generate_otp, get_password_hash,
-                               verify_password)
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    generate_otp,
+    get_password_hash,
+    verify_password,
+)
 from app.db.database import get_db
 from app.db.models.candidate import Candidate
 from app.db.models.otp import OTPVerification
