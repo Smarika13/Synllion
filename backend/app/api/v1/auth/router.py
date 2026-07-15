@@ -1,6 +1,6 @@
 """Authentication API routes."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
@@ -20,8 +20,12 @@ from app.db.database import get_db
 from app.db.models.candidate import Candidate
 from app.db.models.otp import OTPVerification
 from app.db.models.user import User
+from app.services.email import send_registration_otp
 
 router = APIRouter()
+
+MAX_FAILED_LOGIN_ATTEMPTS = 5
+LOGIN_LOCK_DURATION = timedelta(minutes=15)
 
 
 class UserRegisterRequest(BaseModel):
@@ -75,6 +79,8 @@ async def register(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Register a new user."""
+    if request.password != request.confirm_password:
+        raise HTTPException(status_code=422, detail="Passwords do not match")
     existing_email_result = await db.execute(
         select(User).where(User.email == request.email)
     )
@@ -107,11 +113,12 @@ async def register(
         user_id=user.id,
         otp_code=otp_code,
         purpose="registration",
-        expires_at=datetime.utcnow() + timedelta(minutes=5),
+        expires_at=datetime.now(UTC) + timedelta(minutes=5),
         attempts_remaining=3,
     )
     db.add(otp)
     await db.commit()
+    background_tasks.add_task(send_registration_otp, request.email, otp_code)
 
     return {
         "message": "Registration successful. Please verify your email with the OTP sent.",
@@ -138,7 +145,7 @@ async def verify_otp(
                 OTPVerification.otp_code == request.otp_code,
                 OTPVerification.purpose == "registration",
                 OTPVerification.is_used.is_(False),
-                OTPVerification.expires_at > datetime.utcnow(),
+                OTPVerification.expires_at > datetime.now(UTC),
                 OTPVerification.attempts_remaining > 0,
             )
         )
@@ -168,7 +175,7 @@ async def verify_otp(
     otp.is_used = True
     user.is_active = True
     user.is_verified = True
-    user.email_verified_at = datetime.utcnow()
+    user.email_verified_at = datetime.now(UTC)
 
     access_token = create_access_token(
         {"sub": str(user.id), "email": user.email, "type": user.user_type}
@@ -193,7 +200,19 @@ async def login(
     user_result = await db.execute(select(User).where(User.email == request.email))
     user: User | None = user_result.scalar_one_or_none()
 
-    if not user or not verify_password(request.password, user.password_hash):
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    now = datetime.now(UTC)
+    if user.locked_until and user.locked_until > now:
+        raise HTTPException(status_code=403, detail="Account locked. Try again later.")
+
+    if not verify_password(request.password, user.password_hash):
+        user.failed_login_attempts += 1
+        if user.failed_login_attempts >= MAX_FAILED_LOGIN_ATTEMPTS:
+            user.locked_until = now + LOGIN_LOCK_DURATION
+            user.failed_login_attempts = 0
+        await db.commit()
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not user.is_active or not user.is_verified:
@@ -202,11 +221,9 @@ async def login(
             detail="Email not verified. Please verify your email first.",
         )
 
-    if user.locked_until and user.locked_until > datetime.utcnow():
-        raise HTTPException(status_code=403, detail="Account locked. Try again later.")
-
     user.failed_login_attempts = 0
-    user.last_login_at = datetime.utcnow()
+    user.locked_until = None
+    user.last_login_at = now
 
     access_token = create_access_token(
         {"sub": str(user.id), "email": user.email, "type": user.user_type}

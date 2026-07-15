@@ -42,7 +42,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: ../docker/backend/Dockerfile
+      dockerfile: ../docker/backend/dockerfile
     container_name: synllion-backend
     restart: unless-stopped
     ports:
