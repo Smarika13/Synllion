@@ -1,20 +1,21 @@
+"""FastAPI application entry point."""
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1.auth import router as auth_router
+from app.api.v1.auth.router import router as auth_router
 from app.config import settings
 from app.db.database import Base, engine
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup: Create tables
+async def lifespan(app: FastAPI) -> None:  # noqa: ARG001
+    """Application lifespan manager."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
-    # Shutdown
     await engine.dispose()
 
 
@@ -26,7 +27,6 @@ app = FastAPI(
     debug=settings.DEBUG,
 )
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -35,10 +35,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include routers
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Authentication"])
 
 
 @app.get("/health")
-async def health_check():
+async def health_check() -> dict[str, str]:
+    """Health check endpoint."""
     return {"status": "healthy", "app": settings.APP_NAME}

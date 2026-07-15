@@ -1,6 +1,10 @@
+"""Authentication API routes."""
+
 from datetime import datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,43 +24,80 @@ from app.db.models.user import User
 router = APIRouter()
 
 
+class UserRegisterRequest(BaseModel):
+    """Registration request schema."""
+
+    username: str = Field(
+        ...,
+        min_length=3,
+        max_length=50,
+        pattern=r"^[a-zA-Z0-9_]+$",
+    )
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=128)
+    confirm_password: str = Field(..., min_length=8, max_length=128)
+    user_type: str = Field(..., pattern=r"^(candidate|company_admin)$")
+
+
+class OTPVerifyRequest(BaseModel):
+    """OTP verification request schema."""
+
+    email: EmailStr
+    otp_code: str = Field(..., min_length=6, max_length=6, pattern=r"^[0-9]{6}$")
+
+
+class LoginRequest(BaseModel):
+    """Login request schema."""
+
+    email: EmailStr
+    password: str
+
+
+class TokenResponse(BaseModel):
+    """Token response schema."""
+
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    expires_in: int
+
+
 @router.get("/test")
-async def test_auth():
+async def test_auth() -> dict[str, str]:
+    """Test endpoint for auth router."""
     return {"message": "Auth router working"}
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(
-    request: dict, background_tasks: BackgroundTasks, db: AsyncSession = Depends(get_db)
-):
-    # Check if email exists
-    result = await db.execute(select(User).where(User.email == request["email"]))
+    request: UserRegisterRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Register a new user."""
+    result = await db.execute(select(User).where(User.email == request.email))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # Check if username exists
-    result = await db.execute(select(User).where(User.username == request["username"]))
+    result = await db.execute(select(User).where(User.username == request.username))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Username already taken")
 
-    # Create user (inactive until OTP verified)
     user = User(
-        username=request["username"],
-        email=request["email"],
-        password_hash=get_password_hash(request["password"]),
-        user_type=request["user_type"],
+        username=request.username,
+        email=request.email,
+        password_hash=get_password_hash(request.password),
+        user_type=request.user_type,
         is_active=False,
         is_verified=False,
     )
     db.add(user)
     await db.flush()
 
-    # Create profile based on user type
-    if request["user_type"] == "candidate":
+    if request.user_type == "candidate":
         candidate = Candidate(user_id=user.id)
         db.add(candidate)
 
-    # Generate OTP
     otp_code = generate_otp()
     otp = OTPVerification(
         user_id=user.id,
@@ -68,54 +109,49 @@ async def register(
     db.add(otp)
     await db.commit()
 
-    # TODO: Send OTP email via background task
-    # background_tasks.add_task(send_otp_email, request["email"], otp_code)
-
     return {
         "message": "Registration successful. Please verify your email with the OTP sent.",
-        "email": request["email"],
+        "email": request.email,
         "expires_in": 300,
     }
 
 
 @router.post("/verify-otp")
-async def verify_otp(request: dict, db: AsyncSession = Depends(get_db)):
-    email = request.get("email")
-    otp_code = request.get("otp_code")
-
-    # Find user
-    result = await db.execute(select(User).where(User.email == email))
-    user = result.scalar_one_or_none()
+async def verify_otp(
+    request: OTPVerifyRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    """Verify OTP and activate account."""
+    result = await db.execute(select(User).where(User.email == request.email))
+    user: User | None = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Find valid OTP
     result = await db.execute(
         select(OTPVerification).where(
             and_(
                 OTPVerification.user_id == user.id,
-                OTPVerification.otp_code == otp_code,
+                OTPVerification.otp_code == request.otp_code,
                 OTPVerification.purpose == "registration",
-                OTPVerification.is_used == False,
+                OTPVerification.is_used.is_(False),
                 OTPVerification.expires_at > datetime.utcnow(),
                 OTPVerification.attempts_remaining > 0,
             )
         )
     )
-    otp = result.scalar_one_or_none()
+    otp: OTPVerification | None = result.scalar_one_or_none()
 
     if not otp:
-        # Decrement attempts if wrong OTP
         result = await db.execute(
             select(OTPVerification).where(
                 and_(
                     OTPVerification.user_id == user.id,
                     OTPVerification.purpose == "registration",
-                    OTPVerification.is_used == False,
+                    OTPVerification.is_used.is_(False),
                 )
             )
         )
-        existing_otp = result.scalar_one_or_none()
+        existing_otp: OTPVerification | None = result.scalar_one_or_none()
         if existing_otp and existing_otp.attempts_remaining > 0:
             existing_otp.attempts_remaining -= 1
             await db.commit()
@@ -125,13 +161,11 @@ async def verify_otp(request: dict, db: AsyncSession = Depends(get_db)):
             )
         raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
-    # Mark OTP as used and activate user
     otp.is_used = True
     user.is_active = True
     user.is_verified = True
     user.email_verified_at = datetime.utcnow()
 
-    # Generate tokens
     access_token = create_access_token(
         {"sub": str(user.id), "email": user.email, "type": user.user_type}
     )
@@ -139,23 +173,23 @@ async def verify_otp(request: dict, db: AsyncSession = Depends(get_db)):
 
     await db.commit()
 
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-    }
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
 
 
 @router.post("/login")
-async def login(request: dict, db: AsyncSession = Depends(get_db)):
-    email = request.get("email")
-    password = request.get("password")
+async def login(
+    request: LoginRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
+    """Authenticate user and return tokens."""
+    result = await db.execute(select(User).where(User.email == request.email))
+    user: User | None = result.scalar_one_or_none()
 
-    result = await db.execute(select(User).where(User.email == email))
-    user = result.scalar_one_or_none()
-
-    if not user or not verify_password(password, user.password_hash):
+    if not user or not verify_password(request.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     if not user.is_active or not user.is_verified:
@@ -163,6 +197,9 @@ async def login(request: dict, db: AsyncSession = Depends(get_db)):
             status_code=403,
             detail="Email not verified. Please verify your email first.",
         )
+
+    if user.locked_until and user.locked_until > datetime.utcnow():
+        raise HTTPException(status_code=403, detail="Account locked. Try again later.")
 
     user.failed_login_attempts = 0
     user.last_login_at = datetime.utcnow()
@@ -174,9 +211,8 @@ async def login(request: dict, db: AsyncSession = Depends(get_db)):
 
     await db.commit()
 
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "token_type": "bearer",
-        "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-    }
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )

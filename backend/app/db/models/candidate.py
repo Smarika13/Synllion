@@ -1,10 +1,14 @@
+"""Candidate profile database model."""
+
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    ARRAY,
     JSON,
     Boolean,
-    Column,
     DateTime,
     ForeignKey,
     Integer,
@@ -12,49 +16,134 @@ from sqlalchemy import (
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
 
 
 class Candidate(Base):
+    """Candidate profile model."""
+
     __tablename__ = "candidates"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        default=uuid.uuid4,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
     )
 
-    full_name = Column(String(255), nullable=True)
-    phone = Column(String(20), nullable=True)
-    headline = Column(String(255), nullable=True)
-    summary = Column(Text, nullable=True)
-    location = Column(String(255), nullable=True)
-    years_experience = Column(Integer, nullable=True)
-    current_salary = Column(Numeric(12, 2), nullable=True)
-    expected_salary = Column(Numeric(12, 2), nullable=True)
-
-    education = Column(JSON, default=list)
-    experience = Column(JSON, default=list)
-    skills = Column(ARRAY(String), default=list)
-    projects = Column(JSON, default=list)
-    certifications = Column(JSON, default=list)
-
-    github_username = Column(String(100), nullable=True)
-    github_repos = Column(JSON, default=list)
-    linkedin_url = Column(String(500), nullable=True)
-    portfolio_url = Column(String(500), nullable=True)
-
-    profile_completeness = Column(Integer, default=0)
-    state = Column(String(50), default="active")
-
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at = Column(
-        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    full_name: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    phone: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+    headline: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    summary: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+    )
+    location: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+    years_experience: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+    )
+    current_salary: Mapped[float | None] = mapped_column(
+        Numeric(12, 2),
+        nullable=True,
+    )
+    expected_salary: Mapped[float | None] = mapped_column(
+        Numeric(12, 2),
+        nullable=True,
     )
 
-    user = relationship("User", back_populates="candidate")
+    education: Mapped[list[dict]] = mapped_column(
+        JSON,
+        default=list,
+        nullable=False,
+    )
+    experience: Mapped[list[dict]] = mapped_column(
+        JSON,
+        default=list,
+        nullable=False,
+    )
+    skills: Mapped[list[str]] = mapped_column(
+        ARRAY(String),
+        default=list,
+        nullable=False,
+    )
+    projects: Mapped[list[dict]] = mapped_column(
+        JSON,
+        default=list,
+        nullable=False,
+    )
+    certifications: Mapped[list[dict]] = mapped_column(
+        JSON,
+        default=list,
+        nullable=False,
+    )
+
+    github_username: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+    github_repos: Mapped[list[dict]] = mapped_column(
+        JSON,
+        default=list,
+        nullable=False,
+    )
+    linkedin_url: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+    portfolio_url: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    profile_completeness: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        nullable=False,
+    )
+    state: Mapped[str] = mapped_column(
+        String(50),
+        default="active",
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        nullable=False,
+    )
+
+    user: Mapped["User"] = relationship(
+        "User",
+        back_populates="candidate",
+    )
+
+
+# Deferred import to avoid circular imports while satisfying Pylance.
+from app.db.models.user import User  # noqa: E402, F401
