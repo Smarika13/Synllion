@@ -1,6 +1,8 @@
+import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
@@ -9,17 +11,12 @@ from app.db.database import Base
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(String(36), primary_key=True)  # UUID as string for simplicity
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     username = Column(String(50), nullable=False, unique=True, index=True)
     email = Column(String(255), nullable=False, unique=True, index=True)
     password_hash = Column(String(255), nullable=False)
-    user_type = Column(
-        String(20),
-        nullable=False,
-        default="candidate",
-        # Options: candidate, company_admin, company_recruiter, company_viewer, platform_admin
-    )
-    is_active = Column(Boolean, default=False)  # False until OTP verified
+    user_type = Column(String(20), nullable=False, default="candidate")
+    is_active = Column(Boolean, default=False)
     is_verified = Column(Boolean, default=False)
     email_verified_at = Column(DateTime(timezone=True), nullable=True)
     last_login_at = Column(DateTime(timezone=True), nullable=True)
@@ -31,7 +28,6 @@ class User(Base):
     )
     deleted_at = Column(DateTime(timezone=True), nullable=True)
 
-    # Relationships
     otp_verifications = relationship(
         "OTPVerification", back_populates="user", cascade="all, delete-orphan"
     )
