@@ -1,4 +1,5 @@
 from __future__ import annotations
+from uuid import UUID
 
 from typing import Any
 
@@ -35,8 +36,8 @@ class CandidateProfileUpdate(CandidateProfileBase):
 
 
 class CandidateProfileResponse(CandidateProfileBase):
-    id: str
-    user_id: str
+    id: UUID
+    user_id: UUID
     profile_completeness: int
     state: str
 
