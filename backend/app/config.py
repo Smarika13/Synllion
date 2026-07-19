@@ -18,11 +18,13 @@ class Settings(BaseSettings):
     APP_NAME: str = "Synllion"
     APP_ENV: str = "development"
     DEBUG: bool = True
+    SQL_ECHO: bool = False
 
     # Database
     DATABASE_URL: str = (
         "postgresql+asyncpg://synllion_user:synllion_dev_password_2024@postgres:5432/synllion"
     )
+    
 
     # Redis
     REDIS_URL: str = "redis://redis:6379/0"
