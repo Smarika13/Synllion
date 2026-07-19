@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "Synllion"
     APP_ENV: str = "development"
     DEBUG: bool = True
+    SQL_ECHO: bool = False
 
     # Database
     DATABASE_URL: str = (

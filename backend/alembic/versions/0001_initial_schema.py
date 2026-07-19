@@ -5,10 +5,9 @@ Revises:
 Create Date: 2026-07-15
 """
 
-from alembic import op
-
-from app.db.database import Base
 import app.db.models  # noqa: F401  Ensure model tables are registered.
+from alembic import op
+from app.db.database import Base
 
 revision = "0001_initial_schema"
 down_revision = None
