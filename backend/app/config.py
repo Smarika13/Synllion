@@ -24,7 +24,6 @@ class Settings(BaseSettings):
     DATABASE_URL: str = (
         "postgresql+asyncpg://synllion_user:synllion_dev_password_2024@postgres:5432/synllion"
     )
-    
 
     # Redis
     REDIS_URL: str = "redis://redis:6379/0"
