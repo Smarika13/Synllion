@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import UUID
 
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -35,8 +36,8 @@ class CandidateProfileUpdate(CandidateProfileBase):
 
 
 class CandidateProfileResponse(CandidateProfileBase):
-    id: str
-    user_id: str
+    id: UUID
+    user_id: UUID
     profile_completeness: int
     state: str
 

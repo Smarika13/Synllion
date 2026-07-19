@@ -83,7 +83,7 @@ async def create_or_replace_profile(
         db.add(candidate)
         await db.flush()
 
-    for key, value in payload.model_dump().items():
+    for key, value in payload.model_dump(mode="json").items():
         setattr(candidate, key, value)
 
     candidate.profile_completeness = calculate_profile_completeness(candidate)
@@ -113,7 +113,7 @@ async def update_profile(
         db.add(candidate)
         await db.flush()
 
-    updates = payload.model_dump(exclude_unset=True)
+    updates = payload.model_dump(mode="json", exclude_unset=True)
     for key, value in updates.items():
         setattr(candidate, key, value)
 
