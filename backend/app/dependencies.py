@@ -1,5 +1,8 @@
 """Shared FastAPI dependencies."""
 
+from collections.abc import Callable
+from typing import Any, Coroutine
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
@@ -43,3 +46,17 @@ async def get_current_user(
             detail="User not found",
         )
     return user
+
+
+def require_role(*allowed_types: str) -> Callable[[User], Coroutine[Any, Any, User]]:
+    """Build a dependency that only allows the given user_type(s) through."""
+
+    async def _check(current_user: User = Depends(get_current_user)) -> User:
+        if current_user.user_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to perform this action",
+            )
+        return current_user
+
+    return _check
