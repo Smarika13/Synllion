@@ -35,11 +35,11 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Email
-    SMTP_HOST: str = "smtp.sendgrid.net"
+    SMTP_HOST: str = "smtp-relay.brevo.com"
     SMTP_PORT: int = 587
-    SMTP_USER: str = "apikey"
+    SMTP_USER: str = "b2be9d001@smtp-brevo.com"
     SMTP_PASSWORD: str = ""
-    FROM_EMAIL: str = "noreply@synllion.com"
+    FROM_EMAIL: str = "smujkv9513@gmail.com"
 
     # Groq
     GROQ_API_KEY: str = ""

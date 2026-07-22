@@ -96,10 +96,17 @@ class User(Base):
         back_populates="user",
         uselist=False,
     )
+    company: Mapped["Company | None"] = relationship(
+        "Company",
+        back_populates="user",
+        uselist=False,
+        foreign_keys="Company.user_id",
+    )
 
 
 # Deferred imports to avoid circular imports while satisfying Pylance.
 # These run after the User class is defined, so OTPVerification and
 # Candidate can safely reference User in their own bottom imports.
 from app.db.models.candidate import Candidate  # noqa: E402, F401
+from app.db.models.company import Company  # noqa: E402, F401
 from app.db.models.otp import OTPVerification  # noqa: E402, F401

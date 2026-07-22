@@ -40,7 +40,7 @@ class UserRegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=128)
     confirm_password: str = Field(..., min_length=8, max_length=128)
-    user_type: str = Field(..., pattern=r"^(candidate|company_admin)$")
+    user_type: str = Field(..., pattern=r"^candidate$")
 
 
 class OTPVerifyRequest(BaseModel):
